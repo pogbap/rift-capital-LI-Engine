@@ -1,0 +1,97 @@
+name: Manual LI Engine Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (true = simulate only, no real Unipile/Notion writes; false = real run)"
+        type: boolean
+        default: false
+      run_post_publisher:
+        description: "Run Post Publisher (publishes the oldest approved LI Post)"
+        type: boolean
+        default: true
+      run_feed_scanner_commenter:
+        description: "Run Feed Scanner + Commenter (scans a target's recent posts, drafts comments, posts approved comments)"
+        type: boolean
+        default: true
+      run_reply_monitor:
+        description: "Run Reply Monitor (checks posted comments for new replies)"
+        type: boolean
+        default: true
+      run_engagement_tracker:
+        description: "Run Engagement Tracker (records fresh metrics for published posts)"
+        type: boolean
+        default: true
+
+jobs:
+  run-li-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Post Publisher
+        if: ${{ inputs.run_post_publisher }}
+        env:
+          LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DB_POSTS_ID: ${{ secrets.NOTION_DB_POSTS_ID }}
+          NOTION_DB_TARGETS_ID: ${{ secrets.NOTION_DB_TARGETS_ID }}
+          NOTION_DB_COMMENTS_ID: ${{ secrets.NOTION_DB_COMMENTS_ID }}
+          NOTION_DB_METRICS_ID: ${{ secrets.NOTION_DB_METRICS_ID }}
+          NOTION_DB_RUNS_ID: ${{ secrets.NOTION_DB_RUNS_ID }}
+          UNIPILE_BASE_URL: ${{ secrets.UNIPILE_BASE_URL }}
+          UNIPILE_API_KEY: ${{ secrets.UNIPILE_API_KEY }}
+          UNIPILE_ACCOUNT_ID: ${{ secrets.UNIPILE_ACCOUNT_ID }}
+        run: node scripts/post-publisher.js
+
+      - name: Feed Scanner + Commenter
+        if: ${{ inputs.run_feed_scanner_commenter }}
+        env:
+          LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DB_POSTS_ID: ${{ secrets.NOTION_DB_POSTS_ID }}
+          NOTION_DB_TARGETS_ID: ${{ secrets.NOTION_DB_TARGETS_ID }}
+          NOTION_DB_COMMENTS_ID: ${{ secrets.NOTION_DB_COMMENTS_ID }}
+          NOTION_DB_METRICS_ID: ${{ secrets.NOTION_DB_METRICS_ID }}
+          NOTION_DB_RUNS_ID: ${{ secrets.NOTION_DB_RUNS_ID }}
+          UNIPILE_BASE_URL: ${{ secrets.UNIPILE_BASE_URL }}
+          UNIPILE_API_KEY: ${{ secrets.UNIPILE_API_KEY }}
+          UNIPILE_ACCOUNT_ID: ${{ secrets.UNIPILE_ACCOUNT_ID }}
+        run: node scripts/feed-scanner-commenter.js
+
+      - name: Reply Monitor
+        if: ${{ inputs.run_reply_monitor }}
+        env:
+          LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DB_POSTS_ID: ${{ secrets.NOTION_DB_POSTS_ID }}
+          NOTION_DB_TARGETS_ID: ${{ secrets.NOTION_DB_TARGETS_ID }}
+          NOTION_DB_COMMENTS_ID: ${{ secrets.NOTION_DB_COMMENTS_ID }}
+          NOTION_DB_METRICS_ID: ${{ secrets.NOTION_DB_METRICS_ID }}
+          NOTION_DB_RUNS_ID: ${{ secrets.NOTION_DB_RUNS_ID }}
+          UNIPILE_BASE_URL: ${{ secrets.UNIPILE_BASE_URL }}
+          UNIPILE_API_KEY: ${{ secrets.UNIPILE_API_KEY }}
+          UNIPILE_ACCOUNT_ID: ${{ secrets.UNIPILE_ACCOUNT_ID }}
+        run: node scripts/reply-monitor.js
+
+      - name: Engagement Tracker
+        if: ${{ inputs.run_engagement_tracker }}
+        env:
+          LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DB_POSTS_ID: ${{ secrets.NOTION_DB_POSTS_ID }}
+          NOTION_DB_TARGETS_ID: ${{ secrets.NOTION_DB_TARGETS_ID }}
+          NOTION_DB_COMMENTS_ID: ${{ secrets.NOTION_DB_COMMENTS_ID }}
+          NOTION_DB_METRICS_ID: ${{ secrets.NOTION_DB_METRICS_ID }}
+          NOTION_DB_RUNS_ID: ${{ secrets.NOTION_DB_RUNS_ID }}
+          UNIPILE_BASE_URL: ${{ secrets.UNIPILE_BASE_URL }}
+          UNIPILE_API_KEY: ${{ secrets.UNIPILE_API_KEY }}
+          UNIPILE_ACCOUNT_ID: ${{ secrets.UNIPILE_ACCOUNT_ID }}
+        run: node scripts/engagement-tracker.js
