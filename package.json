@@ -11,6 +11,7 @@
     "feed-scanner-commenter": "node scripts/feed-scanner-commenter.js",
     "reply-monitor": "node scripts/reply-monitor.js",
     "engagement-tracker": "node scripts/engagement-tracker.js",
-    "approval-sync": "node scripts/approval-sync.js"
+    "approval-sync": "node scripts/approval-sync.js",
+    "content-drafter": "node scripts/content-drafter.js"
   }
 }
