@@ -49,7 +49,7 @@ jobs:
           node-version: "20"
 
       - name: Post Publisher
-        if: ${{ inputs.run_post_publisher }}
+        if: ${{ !cancelled() && inputs.run_post_publisher }}
         env:
           LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
@@ -64,7 +64,7 @@ jobs:
         run: node scripts/post-publisher.js
 
       - name: Feed Scanner + Commenter
-        if: ${{ inputs.run_feed_scanner_commenter }}
+        if: ${{ !cancelled() && inputs.run_feed_scanner_commenter }}
         env:
           LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
@@ -79,7 +79,7 @@ jobs:
         run: node scripts/feed-scanner-commenter.js
 
       - name: Reply Monitor
-        if: ${{ inputs.run_reply_monitor }}
+        if: ${{ !cancelled() && inputs.run_reply_monitor }}
         env:
           LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
@@ -94,7 +94,7 @@ jobs:
         run: node scripts/reply-monitor.js
 
       - name: Engagement Tracker
-        if: ${{ inputs.run_engagement_tracker }}
+        if: ${{ !cancelled() && inputs.run_engagement_tracker }}
         env:
           LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
@@ -109,7 +109,7 @@ jobs:
         run: node scripts/engagement-tracker.js
 
       - name: Content Drafter
-        if: ${{ inputs.run_content_drafter }}
+        if: ${{ !cancelled() && inputs.run_content_drafter }}
         env:
           LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
