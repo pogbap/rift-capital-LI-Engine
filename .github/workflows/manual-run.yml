@@ -23,6 +23,18 @@ on:
         description: "Run Engagement Tracker (records fresh metrics for published posts)"
         type: boolean
         default: true
+      run_content_drafter:
+        description: "Run Content Drafter (filters raw_news below and writes new draft LI Posts — never auto-published)"
+        type: boolean
+        default: false
+      raw_news:
+        description: "Content Drafter only: paste raw headlines/snippets/links to filter and draft from"
+        type: string
+        default: ""
+      content_drafter_count:
+        description: "Content Drafter only: max number of draft posts to generate"
+        type: string
+        default: "3"
 
 jobs:
   run-li-engine:
@@ -95,3 +107,21 @@ jobs:
           UNIPILE_API_KEY: ${{ secrets.UNIPILE_API_KEY }}
           UNIPILE_ACCOUNT_ID: ${{ secrets.UNIPILE_ACCOUNT_ID }}
         run: node scripts/engagement-tracker.js
+
+      - name: Content Drafter
+        if: ${{ inputs.run_content_drafter }}
+        env:
+          LI_ENGINE_DRY_RUN: ${{ inputs.dry_run }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DB_POSTS_ID: ${{ secrets.NOTION_DB_POSTS_ID }}
+          NOTION_DB_TARGETS_ID: ${{ secrets.NOTION_DB_TARGETS_ID }}
+          NOTION_DB_COMMENTS_ID: ${{ secrets.NOTION_DB_COMMENTS_ID }}
+          NOTION_DB_METRICS_ID: ${{ secrets.NOTION_DB_METRICS_ID }}
+          NOTION_DB_RUNS_ID: ${{ secrets.NOTION_DB_RUNS_ID }}
+          UNIPILE_BASE_URL: ${{ secrets.UNIPILE_BASE_URL }}
+          UNIPILE_API_KEY: ${{ secrets.UNIPILE_API_KEY }}
+          UNIPILE_ACCOUNT_ID: ${{ secrets.UNIPILE_ACCOUNT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CONTENT_DRAFTER_RAW_NEWS: ${{ inputs.raw_news }}
+          CONTENT_DRAFTER_COUNT: ${{ inputs.content_drafter_count }}
+        run: node scripts/content-drafter.js
