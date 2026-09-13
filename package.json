@@ -1,0 +1,16 @@
+{
+  "name": "li-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rift Capital LI Engine — Notion-backed, Unipile-direct rebuild of the 4 LinkedIn automations (replaces Make.com). See README.md.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "post-publisher": "node scripts/post-publisher.js",
+    "feed-scanner-commenter": "node scripts/feed-scanner-commenter.js",
+    "reply-monitor": "node scripts/reply-monitor.js",
+    "engagement-tracker": "node scripts/engagement-tracker.js",
+    "approval-sync": "node scripts/approval-sync.js"
+  }
+}
