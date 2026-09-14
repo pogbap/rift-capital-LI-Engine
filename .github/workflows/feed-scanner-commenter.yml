@@ -1,0 +1,31 @@
+name: LI Engine - Feed Scanner + Commenter
+
+on:
+  schedule:
+    # every 2h, 05:00-17:00 UTC, Mon-Fri — matches scripts/feed-scanner-commenter.js's original cadence (0 5-17/2 * * 1-5)
+    - cron: '0 5-17/2 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  scan-and-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run feed-scanner-commenter
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DB_POSTS_ID: bccf543f-a3c7-4216-a2e9-3ca631eea146
+          NOTION_DB_TARGETS_ID: da7c8dc6-12e6-4917-87a9-2225bc9a1fe5
+          NOTION_DB_COMMENTS_ID: 95bdd8ae-5c91-4d4a-a5b1-04839b2a8abd
+          NOTION_DB_METRICS_ID: f6d08955-3344-4622-9cdd-93aa9c08fa83
+          NOTION_DB_RUNS_ID: 7de4a2e1-b4d0-4984-9a51-5fa46c7e8a7a
+          UNIPILE_BASE_URL: ${{ secrets.UNIPILE_BASE_URL }}
+          UNIPILE_API_KEY: ${{ secrets.UNIPILE_API_KEY }}
+          UNIPILE_ACCOUNT_ID: ${{ secrets.UNIPILE_ACCOUNT_ID }}
+          LI_ENGINE_DRY_RUN: 'false'
+        run: node scripts/feed-scanner-commenter.js
