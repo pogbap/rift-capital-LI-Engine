@@ -26,6 +26,28 @@
  * this run (whether or not it produced a draft) gets `Last Scanned` bumped,
  * so the round-robin ordering for the *next* run naturally continues from
  * wherever this run stopped.
+ *
+ * §6.2.2 ROOT CAUSE FOUND + FIXED (2026-09-14): a real run against the full
+ * 75-target pool came back "nothing in last 7d" for EVERY single target —
+ * including Alex Konrad, manually confirmed to have posted 3 days prior and
+ * reposted something 4 days prior. All 75 targets returning zero in their
+ * last 3 posts is not a quiet week, it's a systematic failure. The actual
+ * bug: `unipileRequest()` never checks whether the HTTP call succeeded —
+ * `getUserPosts()` gets back whatever `res.json()` parsed (or `{}` on parse
+ * failure) for ANY status code, and the old scanPass did
+ * `res.data?.items || []` unconditionally. A 401/404/422/5xx from Unipile —
+ * bad account_id, expired connection, wrong identifier format, whatever —
+ * silently became "0 posts", which is indistinguishable from a genuinely
+ * quiet target. That's why this needed a human to notice a missed post
+ * before anyone realized the scanner wasn't actually seeing anything.
+ *
+ * Fix: scanPass now checks `res.statusCode` on every getUserPosts call. A
+ * non-2xx is logged as an explicit API ERROR (with status + response body)
+ * in the target's summary line, counted separately from genuine "0 posts in
+ * window", and flips the run's `alert` so it surfaces in Automation Runs
+ * instead of reading as a clean no-op. A future credentials/config problem
+ * will now show up as a visible failure the same run it happens, not as
+ * silence that only gets caught by someone screenshotting LinkedIn by hand.
  */
 
 const config = require('../lib/config');
@@ -82,6 +104,7 @@ async function scanPass() {
 
   let scanned = 0;
   let drafted = 0;
+  let apiErrors = 0;
   const checkedTargets = [];
   const noDateSkips = [];
 
@@ -99,14 +122,33 @@ async function scanPass() {
     await unipile.randomSleep(8, 13); // source pacing, §2.4
 
     const res = await unipile.getUserPosts(handle, 3);
+
+    // §6.2.2 — a non-2xx from Unipile is a failed call, not "zero posts".
+    // Treating it as the latter is exactly the bug that made a systematic
+    // outage look like a quiet week across all 75 targets. Surface it.
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      apiErrors += 1;
+      await updatePage(target.id, { 'Last Scanned': prop.date(new Date().toISOString()) });
+      checkedTargets.push(
+        `${name} (API ERROR ${res.statusCode}: ${JSON.stringify(res.data).slice(0, 200)})`
+      );
+      continue; // don't draft on data we never actually got
+    }
+
     const items = res.data?.items || [];
     scanned += 1;
 
     let draftedForTarget = 0;
     let sawUndatedPost = false;
+    const postDebug = []; // §6.2.2 — raw date-parse outcome per post, for diagnosing false negatives
 
     for (const post of items) {
       const postDate = extractPostDate(post);
+      postDebug.push(
+        postDate
+          ? `${postDate.toISOString().slice(0, 10)}${isWithinRecencyWindow(postDate) ? '' : ' (outside 7d)'}`
+          : `unparsed(raw date=${JSON.stringify(post.date)}, parsed_datetime=${JSON.stringify(post.parsed_datetime)})`
+      );
       if (!isWithinRecencyWindow(postDate)) {
         if (!postDate) sawUndatedPost = true;
         continue; // too old, or we can't confirm the date — don't draft on a guess
@@ -134,15 +176,19 @@ async function scanPass() {
 
     drafted += draftedForTarget;
     await updatePage(target.id, { 'Last Scanned': prop.date(new Date().toISOString()) });
-    checkedTargets.push(
-      `${name}${draftedForTarget > 0 ? ` (drafted ${draftedForTarget})` : sawUndatedPost ? ' (undated posts, skipped)' : ' (nothing in last 7d)'}`
-    );
+    const outcomeLabel =
+      draftedForTarget > 0
+        ? ` (drafted ${draftedForTarget})`
+        : items.length === 0
+          ? ' (no posts returned)'
+          : ` (${items.length} post(s), none in 7d: ${postDebug.join(', ')})`;
+    checkedTargets.push(`${name}${outcomeLabel}`);
     if (sawUndatedPost) noDateSkips.push(name);
 
     if (draftedForTarget > 0) break; // found a real, recent, commentable post — stop here per operator request
   }
 
-  return { scanned, drafted, checkedTargets, noDateSkips };
+  return { scanned, drafted, apiErrors, checkedTargets, noDateSkips };
 }
 
 async function postPass() {
@@ -178,17 +224,25 @@ async function main() {
   const scan = await scanPass();
   const post = await postPass();
   const recordsTouched = scan.drafted + post.posted + post.failed;
+  const hasApiErrors = scan.apiErrors > 0;
 
   const scanSummary =
-    `Scanned ${scan.scanned} target(s) of ${scan.checkedTargets.length} checked: ` +
+    `Scanned ${scan.scanned} target(s) of ${scan.checkedTargets.length} checked` +
+    (hasApiErrors ? ` (${scan.apiErrors} API error(s))` : '') +
+    `: ` +
     scan.checkedTargets.join('; ') +
     (scan.drafted > 0 ? '.' : ' — no post from the last 7 days found to draft a comment on.');
 
   return {
-    outcome: post.failed > 0 ? 'partial' : recordsTouched === 0 ? 'no-op' : 'success',
+    outcome: post.failed > 0 || hasApiErrors ? 'partial' : recordsTouched === 0 ? 'no-op' : 'success',
     recordsTouched,
-    alert: post.failed > 0,
-    errorDetail: post.failed > 0 ? `${post.failed} comment(s) failed to post. ${scanSummary}` : scanSummary,
+    alert: post.failed > 0 || hasApiErrors,
+    errorDetail:
+      post.failed > 0
+        ? `${post.failed} comment(s) failed to post. ${scanSummary}`
+        : hasApiErrors
+          ? `${scan.apiErrors} Unipile call(s) failed during scan — see per-target detail. ${scanSummary}`
+          : scanSummary,
   };
 }
 
